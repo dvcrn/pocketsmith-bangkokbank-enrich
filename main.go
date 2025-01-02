@@ -4,7 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -69,23 +71,49 @@ func main() {
 	targetAccountID := config.PocketsmithTransactionAccount // bangkok bank transaction account
 	ps := pocketsmith.NewClient(config.PocketsmithToken)
 
-	// read file
-	file, err := os.Open(config.TransactionMetaFile)
-	if err != nil {
-		fmt.Println("Error opening file:", err)
-		return
-	}
-	defer file.Close()
+	var fileContent string
+	if strings.HasPrefix(config.TransactionMetaFile, "http") {
+		// download file
+		response, err := http.Get(config.TransactionMetaFile)
+		if err != nil {
+			fmt.Println("Error downloading file:", err)
+			return
+		}
+		defer response.Body.Close()
 
-	fileContent, err := io.ReadAll(file)
-	if err != nil {
-		fmt.Println("Error reading file:", err)
-		return
+		content, err := io.ReadAll(response.Body)
+		if err != nil {
+			fmt.Println("Error reading file:", err)
+			return
+		}
+
+		fileContent = string(content)
+	} else {
+		// read file
+		file, err := os.Open(config.TransactionMetaFile)
+		if err != nil {
+			fmt.Println("Error opening file:", err)
+			return
+		}
+		defer file.Close()
+
+		fc, err := io.ReadAll(file)
+		if err != nil {
+			fmt.Println("Error reading file:", err)
+			return
+		}
+
+		fileContent = string(fc)
 	}
 
 	// Parse the test content
 	updatedTransactions := 0
+	processedTxRefs := map[int64]struct{}{}
+
 	lines := strings.Split(string(fileContent), "\n")
+	// reverse array so newest are first
+	slices.Reverse(lines)
+
 	for i, content := range lines {
 		if content == "" {
 			continue
@@ -114,7 +142,7 @@ func main() {
 		bankref := findField(fields, "bankref")
 		txref := findField(fields, "txref")
 
-		fmt.Printf("[%d/%d] Processing: %s\n", i+1, len(lines), txref)
+		fmt.Printf("[%d/%d] Processing: %s from %s\n", i+1, len(lines), txref, to)
 
 		memo := fmt.Sprintf("%s %s %s %s %s %s %s %s", filename, to, from, amount, date, date, bankref, txref)
 
@@ -124,11 +152,32 @@ func main() {
 			continue
 		}
 
-		if len(searchRes) != 1 {
-			fmt.Printf("Found %d transactions for %s, don't know which to update here....\n", len(searchRes), memo)
+		var tx *pocketsmith.Transaction
+		if len(searchRes) > 1 {
+			fmt.Printf("Multiple transactions found for %s: %d\n", memo, len(searchRes))
+			// Multilple transactions with same amount and date, so can just take any
+			for i, s := range searchRes {
+				if strings.Contains(s.Memo, txref) {
+					continue
+				}
+
+				// means this was already used, so we can skip it
+				if _, ok := processedTxRefs[s.ID]; ok {
+					continue
+				}
+
+				fmt.Printf("Using %d transaction: %s\n", i, s.Memo)
+				tx = s
+
+				processedTxRefs[tx.ID] = struct{}{}
+				break
+			}
+		} else if len(searchRes) == 0 {
+			fmt.Printf("No transactions found for %s\n", memo)
 			continue
+		} else {
+			tx = searchRes[0]
 		}
-		tx := searchRes[0]
 
 		if strings.Contains(tx.Memo, txref) {
 			fmt.Printf("Transaction already enriched: %s\n", tx.Memo)
@@ -146,13 +195,14 @@ func main() {
 			Note:        tx.Note,
 		}
 
-		err = ps.UpdateTransaction(searchRes[0].ID, txUpdate)
+		err = ps.UpdateTransaction(tx.ID, txUpdate)
 		if err != nil {
 			fmt.Println("Could not update transaction: ", err)
 			continue
 		}
 
 		updatedTransactions++
+		fmt.Println("")
 	}
 
 	fmt.Printf("Done. Processed %d transactions, %d new", len(lines), updatedTransactions)
