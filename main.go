@@ -20,6 +20,12 @@ type Config struct {
 	TransactionMetaFile           string
 }
 
+var targetStrings = []string{
+	"PromptPay Transfer/Top Up eWallet",
+	"Payment for Goods /Services",
+	"Interbank Transfer",
+}
+
 func getConfig() *Config {
 	config := &Config{}
 
@@ -142,7 +148,7 @@ func main() {
 		bankref := findField(fields, "bankref")
 		txref := findField(fields, "txref")
 
-		fmt.Printf("[%d/%d] Processing: %s from %s\n", i+1, len(lines), txref, to)
+		fmt.Printf("[%d/%d] 🔄 Processing: %s from %s\n", i+1, len(lines), txref, to)
 
 		memo := fmt.Sprintf("%s %s %s %s %s %s %s %s", filename, to, from, amount, date, date, bankref, txref)
 
@@ -153,11 +159,20 @@ func main() {
 		}
 
 		var tx *pocketsmith.Transaction
-		if len(searchRes) > 1 {
-			fmt.Printf("Multiple transactions found for %s: %d\n", memo, len(searchRes))
+		if len(searchRes) > 0 {
 			// Multilple transactions with same amount and date, so can just take any
-			for i, s := range searchRes {
-				if strings.Contains(s.Memo, txref) {
+			for _, s := range searchRes {
+				fmt.Println(s.OriginalPayee, s.Payee)
+				containsTarget := (func(search string) bool {
+					for _, ts := range targetStrings {
+						if strings.Contains(search, ts) {
+							return true
+						}
+					}
+					return false
+				})(s.OriginalPayee)
+
+				if !containsTarget {
 					continue
 				}
 
@@ -166,28 +181,31 @@ func main() {
 					continue
 				}
 
-				fmt.Printf("Using %d transaction: %s\n", i, s.Memo)
+				fmt.Printf("Using transaction: payee=%s; original_payee=%s\n", s.Payee, s.OriginalPayee)
 				tx = s
 
 				processedTxRefs[tx.ID] = struct{}{}
 				break
 			}
-		} else if len(searchRes) == 0 {
+		} else {
 			fmt.Printf("No transactions found for %s\n", memo)
 			continue
-		} else {
-			tx = searchRes[0]
 		}
 
-		if strings.Contains(tx.Memo, txref) {
-			fmt.Printf("Transaction already enriched: %s\n", tx.Memo)
+		if tx == nil {
+			fmt.Printf("⚠️ No transactions found for receipt: %s\n", to)
 			continue
 		}
 
-		fmt.Printf("Enriching transaction: %d: %s -> %s\n", tx.ID, tx.Payee, to)
+		//if strings.Contains(tx.Memo, txref) {
+		//	fmt.Printf("🙅‍♀️ Transaction already enriched: %s\n", tx.Memo)
+		//	continue
+		//}
+
+		fmt.Printf("✅ Enriching transaction: %d: %s ➡️ %s\n", tx.ID, tx.Payee, to)
 		txUpdate := &pocketsmith.CreateTransaction{
 			Payee:       to,
-			Memo:        content,
+			Memo:        fmt.Sprintf("txref=%s", txref),
 			Amount:      tx.Amount,
 			Date:        tx.Date,
 			IsTransfer:  tx.IsTransfer,
@@ -195,7 +213,7 @@ func main() {
 			Note:        tx.Note,
 		}
 
-		err = ps.UpdateTransaction(tx.ID, txUpdate)
+		_, err = ps.UpdateTransaction(tx.ID, txUpdate)
 		if err != nil {
 			fmt.Println("Could not update transaction: ", err)
 			continue
