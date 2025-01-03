@@ -17,6 +17,8 @@ RUN go build -o bkkbank-enrich
 
 FROM alpine:latest
 
+RUN apk add --no-cache tzdata
+
 WORKDIR /app
 
 # Copy the binary from builder
