@@ -72,10 +72,32 @@ func findField(fields []string, key string) string {
 	return ""
 }
 
+func findUnassignedAttachment(ps *pocketsmith.Client, userID int, title string) *pocketsmith.Attachment {
+	attachments, err := ps.ListAttachments(userID, true)
+	if err != nil {
+		fmt.Println("Error getting attachments:", err)
+		return nil
+	}
+
+	for _, attachment := range attachments {
+		if attachment.Title == title {
+			return attachment
+		}
+	}
+
+	return nil
+}
+
 func main() {
 	config := getConfig()
 	targetAccountID := config.PocketsmithTransactionAccount // bangkok bank transaction account
 	ps := pocketsmith.NewClient(config.PocketsmithToken)
+
+	currentUser, err := ps.GetCurrentUser()
+	if err != nil {
+		fmt.Println("Error getting current user:", err)
+		return
+	}
 
 	var fileContent string
 	if strings.HasPrefix(config.TransactionMetaFile, "http") {
@@ -197,10 +219,18 @@ func main() {
 			continue
 		}
 
-		//if strings.Contains(tx.Memo, txref) {
-		//	fmt.Printf("🙅‍♀️ Transaction already enriched: %s\n", tx.Memo)
-		//	continue
-		//}
+		if strings.Contains(tx.Memo, txref) {
+			fmt.Printf("🙅‍♀️ Transaction already enriched: %s\n", tx.Memo)
+			continue
+		}
+		
+		foundAttachment := findUnassignedAttachment(ps, currentUser.ID, filename)
+		if foundAttachment != nil {
+			fmt.Printf("📝 Found unassigned attachment: %s\n", foundAttachment.Title)
+			if err := ps.AssignToTransaction(tx.ID, foundAttachment.ID); err != nil {
+				fmt.Println("Could not attach file to transaction: ", err)
+			}
+		}
 
 		fmt.Printf("✅ Enriching transaction: %d: %s ➡️ %s\n", tx.ID, tx.Payee, to)
 		txUpdate := &pocketsmith.CreateTransaction{
