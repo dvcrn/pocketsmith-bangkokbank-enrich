@@ -1,4 +1,8 @@
-github.com/dvcrn/pocketsmith-go v0.0.0-20250103090035-23c5c9067275 h1:6b1Rg306nTdKbtDEahR940ndNvjbUoWQWW1/YxZDMog=
-github.com/dvcrn/pocketsmith-go v0.0.0-20250103090035-23c5c9067275/go.mod h1:rRx2gtJK+78Po3CCQzaZzfb7rcNSxhq4r3xz7Cj9U8M=
-github.com/dvcrn/pocketsmith-go v0.0.0-20250103095801-8e020b62ab74 h1:rC7rw6j7L7ZxDaa50xenehmOatpW6PgCWKoV+yt1Pj4=
-github.com/dvcrn/pocketsmith-go v0.0.0-20250103095801-8e020b62ab74/go.mod h1:rRx2gtJK+78Po3CCQzaZzfb7rcNSxhq4r3xz7Cj9U8M=
+github.com/dvcrn/pocketsmith-go v0.0.0-20250103121729-d6036d6f05c9 h1:JYw7xx9/+6G1+qT3syOiIztYNwXKp6dD17L5wJ4sFng=
+github.com/dvcrn/pocketsmith-go v0.0.0-20250103121729-d6036d6f05c9/go.mod h1:rRx2gtJK+78Po3CCQzaZzfb7rcNSxhq4r3xz7Cj9U8M=
+github.com/dvcrn/pocketsmith-go v0.0.0-20250106010716-73c1d35f8033 h1:4ZPKGKuzD/+/cUK3dp3vHOW7m77LsJ4G9Plo0vM4jNI=
+github.com/dvcrn/pocketsmith-go v0.0.0-20250106010716-73c1d35f8033/go.mod h1:rRx2gtJK+78Po3CCQzaZzfb7rcNSxhq4r3xz7Cj9U8M=
+github.com/dvcrn/pocketsmith-go v0.0.0-20250106014029-2b25cc26b0e6 h1:52T46h4M1nBAeIRqVu21H+IzLuFEmq1rl8mQHk5jYYE=
+github.com/dvcrn/pocketsmith-go v0.0.0-20250106014029-2b25cc26b0e6/go.mod h1:rRx2gtJK+78Po3CCQzaZzfb7rcNSxhq4r3xz7Cj9U8M=
+github.com/dvcrn/pocketsmith-go v0.0.0-20250106020014-f10cbfe20d70 h1:oZW98o4hzFP6kGtNjHzQI3MsxAw8GtjNbMEuxAPgC3s=
+github.com/dvcrn/pocketsmith-go v0.0.0-20250106020014-f10cbfe20d70/go.mod h1:rRx2gtJK+78Po3CCQzaZzfb7rcNSxhq4r3xz7Cj9U8M=

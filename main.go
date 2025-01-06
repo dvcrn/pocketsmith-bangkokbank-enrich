@@ -99,6 +99,12 @@ func main() {
 		return
 	}
 
+	categoryRules, err := ps.ListCategoryRules(currentUser.ID)
+	if err != nil {
+		fmt.Println("Error getting category rules:", err)
+		categoryRules = []*pocketsmith.CategoryRule{}
+	}
+
 	var fileContent string
 	if strings.HasPrefix(config.TransactionMetaFile, "http") {
 		// download file
@@ -142,9 +148,15 @@ func main() {
 	// reverse array so newest are first
 	slices.Reverse(lines)
 
+	consecutiveAlreadyEnriched := 0
 	for i, content := range lines {
 		if content == "" {
 			continue
+		}
+
+		if consecutiveAlreadyEnriched >= 10 {
+			fmt.Println("Skipping due to consecutive already enriched")
+			break
 		}
 
 		// Split the content into fields
@@ -180,7 +192,7 @@ func main() {
 			continue
 		}
 
-		var tx *pocketsmith.Transaction
+		var tx *pocketsmith.DetailedTransaction
 		if len(searchRes) > 0 {
 			// Multilple transactions with same amount and date, so can just take any
 			for _, s := range searchRes {
@@ -221,9 +233,25 @@ func main() {
 
 		if strings.Contains(tx.Memo, txref) {
 			fmt.Printf("🙅‍♀️ Transaction already enriched: %s\n", tx.Memo)
+			consecutiveAlreadyEnriched++
 			continue
+		} else {
+			consecutiveAlreadyEnriched = 0
 		}
-		
+
+		betterCategory := pocketsmith.CategoryIDNone
+		if tx.Category != nil {
+			betterCategory = pocketsmith.CategoryID(tx.Category.ID)
+		}
+
+		for _, rule := range categoryRules {
+			if rule.Matches(tx.Payee) {
+				betterCategory = pocketsmith.CategoryID(rule.Category.ID)
+				fmt.Printf("Found a better category: %s\n", rule.Category.Title)
+				break
+			}
+		}
+
 		foundAttachment := findUnassignedAttachment(ps, currentUser.ID, filename)
 		if foundAttachment != nil {
 			fmt.Printf("📝 Found unassigned attachment: %s\n", foundAttachment.Title)
@@ -233,14 +261,15 @@ func main() {
 		}
 
 		fmt.Printf("✅ Enriching transaction: %d: %s ➡️ %s\n", tx.ID, tx.Payee, to)
-		txUpdate := &pocketsmith.CreateTransaction{
+		txUpdate := &pocketsmith.Transaction{
 			Payee:       to,
 			Memo:        fmt.Sprintf("txref=%s", txref),
 			Amount:      tx.Amount,
 			Date:        tx.Date,
 			IsTransfer:  tx.IsTransfer,
-			NeedsReview: tx.NeedsReview,
+			NeedsReview: true,
 			Note:        tx.Note,
+			CategoryID:  pocketsmith.CategoryID(betterCategory),
 		}
 
 		_, err = ps.UpdateTransaction(tx.ID, txUpdate)
