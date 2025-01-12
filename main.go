@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/dvcrn/pocketsmith-go"
+	"github.com/getsentry/sentry-go"
 )
 
 type Config struct {
@@ -76,6 +77,7 @@ func findUnassignedAttachment(ps *pocketsmith.Client, userID int, title string) 
 	attachments, err := ps.ListAttachments(userID, true)
 	if err != nil {
 		fmt.Println("Error getting attachments:", err)
+		sentry.CaptureException(err)
 		return nil
 	}
 
@@ -96,6 +98,7 @@ func main() {
 	currentUser, err := ps.GetCurrentUser()
 	if err != nil {
 		fmt.Println("Error getting current user:", err)
+		sentry.CaptureException(err)
 		return
 	}
 
@@ -110,6 +113,7 @@ func main() {
 		// download file
 		response, err := http.Get(config.TransactionMetaFile)
 		if err != nil {
+			sentry.CaptureException(err)
 			fmt.Println("Error downloading file:", err)
 			return
 		}
@@ -118,6 +122,7 @@ func main() {
 		content, err := io.ReadAll(response.Body)
 		if err != nil {
 			fmt.Println("Error reading file:", err)
+			sentry.CaptureException(err)
 			return
 		}
 
@@ -127,6 +132,7 @@ func main() {
 		file, err := os.Open(config.TransactionMetaFile)
 		if err != nil {
 			fmt.Println("Error opening file:", err)
+			sentry.CaptureException(err)
 			return
 		}
 		defer file.Close()
@@ -134,6 +140,7 @@ func main() {
 		fc, err := io.ReadAll(file)
 		if err != nil {
 			fmt.Println("Error reading file:", err)
+			sentry.CaptureException(err)
 			return
 		}
 
@@ -257,6 +264,7 @@ func main() {
 			fmt.Printf("📝 Found unassigned attachment: %s\n", foundAttachment.Title)
 			if err := ps.AssignToTransaction(tx.ID, foundAttachment.ID); err != nil {
 				fmt.Println("Could not attach file to transaction: ", err)
+				sentry.CaptureException(err)
 			}
 		}
 
@@ -275,6 +283,7 @@ func main() {
 		_, err = ps.UpdateTransaction(tx.ID, txUpdate)
 		if err != nil {
 			fmt.Println("Could not update transaction: ", err)
+			sentry.CaptureException(err)
 			continue
 		}
 
